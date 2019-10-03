@@ -7,7 +7,7 @@ int main(){
     printf("Entrar a quantidade de processo: ");
     scanf("%d", &number_process);
 
-    if(number_process > 0 && number_process < 3){
+    if(number_process > 0 && number_process <= 3){
 
             //Implementation
     }
