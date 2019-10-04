@@ -2,9 +2,8 @@
 #include <stdlib.h>
 
 int main(){
-    int number_process, tickets_each_process;
+    int number_process;
     char process[5];
-    
 
     printf("Entrar a quantidade de processo: ");
     scanf("%d", &number_process);
@@ -14,9 +13,6 @@ int main(){
         for(int i = 0; i< number_process; i++){
             printf("Digite o processo [%d]: ",i+1);
             scanf("%s",process);
-
-            printf("Entre a quantidade de bilhete do processo %s: ", process);
-            scanf("%d", &tickets_each_process);
         }
     }
     else{
