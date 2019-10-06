@@ -1,3 +1,6 @@
+#define MaxBilhetes 100
+#define bilhetesPadrao 10
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
