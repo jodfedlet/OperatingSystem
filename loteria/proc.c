@@ -360,12 +360,13 @@ int retornaTotalDeBilhetes(){
 void
 scheduler(void)
 {
+  int totalBilhetes = 0;
+  int bilhete_escolhido;
+  
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  int totalBilhetes;
-  int bilhete_escolhido;
-  
+    
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -377,7 +378,8 @@ scheduler(void)
     if(totalBilhetes > 0){
       //Sortear um bilhete e guarda na variável de bilhete_escolhido atualizando o controledo escalonador junto
       bilhete_escolhido = controle_do_escalonador = escalonador_rand(controle_do_escalonador) % totalBilhetes + 1;
-      if(totalBilhetes < bilhete_escolhido) bilhete_escolhido %= totalBilhetes;
+      if(totalBilhetes < bilhete_escolhido) 
+          bilhete_escolhido %= totalBilhetes;
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ // percorre a tabela de processo
 
         if (p->state == RUNNABLE) // verificar se o processo está pronto
