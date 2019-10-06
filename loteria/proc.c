@@ -7,6 +7,10 @@
 #include "proc.h"
 #include "spinlock.h"
 
+// #define DEBUG;
+
+unsigned int controle_do_escalonador = 3;
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -138,6 +142,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
+  p->bilhetes = bilhetesPadrao; //Atribuição de bilhetes padrão ao criar o processo
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -178,7 +183,7 @@ growproc(int n)
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
 int
-fork(void)
+fork(int numero_bilhetes)
 {
   int i, pid;
   struct proc *np;
@@ -188,7 +193,7 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
+  np->Quant_VezSelecionado = 0; //Inicialmente, a quantidade de vez que o processo foi selecionado pelo escalonador é 0
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
     kfree(np->kstack);
@@ -199,6 +204,18 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+  if(numero_bilhetes < 0){
+    np->bilhetes = bilhetesPadrao;
+  }
+  else{
+    if (numero_bilhetes > MaxBilhetes){
+      np->bilhetes = MaxBilhetes;
+    }
+    else{
+      np->bilhetes = numero_bilhetes;
+    }
+  }
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -211,6 +228,10 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  #ifdef DEBUG
+  cprintf("Processo criado. PID: [ %d ] Bilhetes: [ %d ]\n", pid, np->bilhetes);
+  #endif
+
 
   acquire(&ptable.lock);
 
