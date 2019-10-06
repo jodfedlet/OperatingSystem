@@ -229,7 +229,7 @@ fork(int numero_bilhetes)
 
   pid = np->pid;
   #ifdef DEBUG
-  cprintf("Processo criado. PID: [ %d ] Bilhetes: [ %d ]\n", pid, np->bilhetes);
+  cprintf("Processo criado. PID: [ %d ] Bilhetes: [ %d ]\n",p->pid, np->bilhetes);
   #endif
 
 
@@ -332,6 +332,23 @@ wait(void)
   }
 }
 
+//Função para retornar a escolha aleatória do processo
+int escalonador_rand(int state){
+  return ((unsigned int)state * 48271u) % 0x7fffffff;
+}
+
+//Função que retorna o total de bilhete
+int retornaTotalDeBilhetes(){
+  struct proc *p;
+  int totalDeBilhetes = 0;
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if (p->state == RUNNABLE){
+      totalDeBilhetes += p->bilhetes;
+    }
+  }
+  return totalDeBilhetes; 
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -346,6 +363,8 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  int totalBilhetes;
+  int bilhete_escolhido;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -353,23 +372,37 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    totalBilhetes = retornaTotalDeBilhetes();//Chamando a quantidade de bilhetes
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+    if(totalBilhetes > 0){
+      //Sortear um bilhete e guarda na variável de bilhete_escolhido atualizando o controledo escalonador junto
+      bilhete_escolhido = controle_do_escalonador = escalonador_rand(controle_do_escalonador) % totalBilhetes + 1;
+      if(totalBilhetes < bilhete_escolhido) bilhete_escolhido %= totalBilhetes;
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ // percorre a tabela de processo
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+        if (p->state == RUNNABLE) // verificar se o processo está pronto
+          bilhete_escolhido -= p->bilhetes; //tira o bilhete dele nos seus bilhetes
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+        if(p->state != RUNNABLE) // verificar se o processo não está pronto
+          continue; // continua rodando até encontrar um processo pronto
+
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        #ifdef DEBUG
+        cprintf("O processo de PID: [ %d ] é o vencedor da CPU!\n", p->pid);
+        #endif
+        p->Quant_VezSelecionado++; //Incrementar a variável uma vez que o processo foi selecionado
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
     }
     release(&ptable.lock);
 
