@@ -1,5 +1,5 @@
-#define MaxBilhetes 100
-#define bilhetesPadrao 10
+#define base_tkts 100 /*definindo 100 como total base_tkts*/
+#define single_task 10 /*definindo default 10*/
 
 // Per-CPU state
 struct cpu {
@@ -39,6 +39,8 @@ enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
+  int tickets; // Quantidade de bilhetes do processo
+  int callback;//Quantidade de vezes que o processo foi selecionado pelo Escalonador
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
   char *kstack;                // Bottom of kernel stack for this process
@@ -52,8 +54,6 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int bilhetes;                // Quantidade de bilhetes do processo
-  int Quant_VezSelecionado;     //Quantidade de vezes que o processo foi selecionado pelo Escalonador
 };
 
 // Process memory is laid out contiguously, low addresses first:
