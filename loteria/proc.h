@@ -1,7 +1,5 @@
-#define base_tkts 100 /*definindo 100 como total base_tkts*/
-#define single_task 10 /*definindo default 10*/
-
 // Per-CPU state
+
 struct cpu {
   uchar apicid;                // Local APIC ID
   struct context *scheduler;   // swtch() here to enter scheduler

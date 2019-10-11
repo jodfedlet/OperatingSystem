@@ -11,7 +11,7 @@ int
 sys_fork(void)
 {
   int num;
-  argint(0, &num);
+  if(argint(0, &num)) return(-1);
   return fork(num);
 }
 

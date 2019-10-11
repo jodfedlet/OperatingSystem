@@ -21,11 +21,9 @@ forktest(void)
   printf(1, "fork test\n");
 
   for(n=0; n<N; n++){
-    pid = fork(0);
-    if(pid < 0)
-      break;
-    if(pid == 0)
-      exit();
+    pid = fork(1);
+    if(pid < 0) break;
+    if(pid == 0) exit();
   }
 
   if(n == N){

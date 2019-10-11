@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "spinlock.h"
 #define DEBUG /*debub p/ controle */
+#define MAX 100 /*definindo 100 como total MAX*/
+int DEFAULT = 10; /*definindo default 10*/
 unsigned int lcg = 3; /*controle de aleatoriedade do escalonador*/
 
 struct {
@@ -73,7 +75,7 @@ myproc(void) {
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-allocproc(void)
+allocproc(int number_tkts) //alter
 {
   struct proc *p;
   char *sp;
@@ -90,7 +92,11 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
+  if(number_tkts > MAX) p->tickets = MAX;
+  else if(number_tkts < 1) p->tickets = DEFAULT;
+  else p->tickets = number_tkts;
+  p->callback = 0;
+  //O bilhete recebe somente se o sorteado estiver no invervalo definido
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -125,7 +131,7 @@ userinit(void)
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
-  p = allocproc();
+  p = allocproc(DEFAULT); //alocando e passando o default por garantia
   
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
@@ -140,7 +146,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-  p->tickets = single_task; //Atribuição de bilhetes padrão ao criar o processo
+//  p->tickets = DEFAULT; //Atribuição de bilhetes padrão ao criar o processo
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -188,10 +194,10 @@ fork(int number_tkts)
   struct proc *curproc = myproc();
 
   // Allocate process.
-  if((np = allocproc()) == 0){
+  if((np = allocproc(number_tkts)) == 0){
     return -1;
   }
-  np->callback = 0; //Inicialmente, a quantidade de vez que o processo foi selecionado pelo escalonador é 0
+  //np->callback = 0; //Inicialmente, a quantidade de vez que o processo foi selecionado pelo escalonador é 0
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
     kfree(np->kstack);
@@ -202,18 +208,6 @@ fork(int number_tkts)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
-
-  if(number_tkts < 0){
-    np->tickets = single_task;
-  }
-  else{
-    if (number_tkts > base_tkts){
-      np->tickets = base_tkts;
-    }
-    else{
-      np->tickets = number_tkts;
-    }
-  }
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -228,9 +222,9 @@ fork(int number_tkts)
   pid = np->pid;
 
   //depurando:
-  #ifdef DEBUG 
+/*  #ifdef DEBUG 
   cprintf("Processo criado. PID: [ %d ] Bilhetes: [ %d ]\n",np->pid, np->tickets);
-  #endif
+  #endif*/
 
 
   acquire(&ptable.lock);
@@ -339,17 +333,17 @@ int lcg_lotttery_random(int state){
 }
 
 //Função que retorna o total de bilhete
-int tmp_cnt_tkts(){/*contador de bilhetes*/
-  struct proc *p;
-  int sum_tkts = 0;/*contador começa com valor 0*/
-  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+//int tmp_cnt_tkts(){/*contador de bilhetes*/
+ // struct proc *p;
+  //int sum_tkts = 0;/*contador começa com valor 0*/
+  //for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
     /*dentro do laço que percorre todos os processos*/
-    if (p->state == RUNNABLE){
-      sum_tkts += p->tickets;/*se em estado de execução incrementa*/
-    }
-  }
-  return sum_tkts; /*retorna a soma*/
-}
+    //if (p->state == RUNNABLE){
+     // sum_tkts += p->tickets;/*se em estado de execução incrementa*/
+  //  }
+  //}
+  //return sum_tkts; /*retorna a soma*/
+//}
 
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
@@ -375,38 +369,46 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    sum_tkts_scheduler = tmp_cnt_tkts();//Chamando a quantidade de bilhetes
-
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ // percorre a tabela de processo
+      if(p->state != RUNNABLE) continue;
+      sum_tkts_scheduler += p->tickets;
+    } 
     if(sum_tkts_scheduler > 0){
-      //Sortear um bilhete e guarda na variável de sorted_ticket atualizando o controledo escalonador junto
-      sorted_ticket = lcg = lcg_lotttery_random(lcg) % sum_tkts_scheduler + 1;
-      if(sum_tkts_scheduler < sorted_ticket) sorted_ticket %= sum_tkts_scheduler;
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ // percorre a tabela de processo
-        if (p->state == RUNNABLE) // verificar se o processo está pronto
-          sorted_ticket -= p->tickets; //tira o bilhete dele nos seus bilhetes
-        if(p->state != RUNNABLE) // verificar se o processo não está pronto
-          continue; // continua rodando até encontrar um processo pronto
+      sorted_ticket = lcg_lotttery_random(lcg) % sum_tkts_scheduler+1;
+    
 
-        // Switch to chosen process.  It is the process's job
-        // to release ptable.lock and then reacquire it
-        // before jumping back to us.
-        c->proc = p;
-        switchuvm(p);
-        p->state = RUNNING;
-        /*depurando:*/
-        #ifdef DEBUG
-        cprintf("O processo de PID: [ %d ] é o vencedor da CPU!\n", p->pid);
-        #endif
+      if(sorted_ticket < 0) sorted_ticket *= -1;
+      sum_tkts_scheduler = (sorted_ticket%sum_tkts_scheduler)+1;
 
-        p->callback++; //Incrementar a variável uma vez que o processo foi selecionado
-        swtch(&(c->scheduler), p->context);
-        switchkvm();
-        /*break*/;
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+      for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          /*dentro do laço que percorre todos os processos*/
+        if(p->state == RUNNABLE){
+          sum_tkts_scheduler -= p->tickets;/*se em estado de execução incrementa*/
+          if(sum_tkts_scheduler <= 0) {
+            p->callback++;
+
+            // Switch to chosen process.  It is the process's job
+            // to release ptable.lock and then reacquire it
+            // before jumping back to us.
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+            /*depurando:*/
+  /*        #ifdef DEBUG
+            cprintf("O processo de PID: [ %d ] é o vencedor da CPU!\n", p->pid);
+            #endif*/
+
+            //Incrementar a variável uma vez que o processo foi selecionado
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+            break;
+          }
+        }  
       }
-    }
+    } 
     release(&ptable.lock);
 
   }
