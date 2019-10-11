@@ -37,8 +37,8 @@ enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
-  int tickets; // Quantidade de bilhetes do processo
-  int callback;//Quantidade de vezes que o processo foi selecionado pelo Escalonador
+  int tickets;                 // Quantidade de bilhetes do processo
+  int callback;                //Quantidade de vezes que o processo foi selecionado pelo Escalonador
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
   char *kstack;                // Bottom of kernel stack for this process

@@ -6,12 +6,12 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-#define DEBUG /*debub p/ controle */
+//#define DEBUG /*debub p/ controle */
 #define MAX 100 /*definindo 100 como total MAX*/
-int DEFAULT = 10; /*definindo default 10*/
+#define DEFAULT 10 /*definindo default 10*/
 unsigned int lcg = 3; /*controle de aleatoriedade do escalonador*/
 
-struct {
+struct{
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
@@ -24,23 +24,21 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
-void
-pinit(void)
-{
+void pinit(void){
+
   initlock(&ptable.lock, "ptable");
 }
 
 // Must be called with interrupts disabled
-int
-cpuid() {
+int cpuid(){
+
   return mycpu()-cpus;
 }
 
 // Must be called with interrupts disabled to avoid the caller being
 // rescheduled between reading lapicid and running through the loop.
-struct cpu*
-mycpu(void)
-{
+struct cpu* mycpu(void){
+
   int apicid, i;
   
   if(readeflags()&FL_IF)
@@ -58,8 +56,7 @@ mycpu(void)
 
 // Disable interrupts so that we are not rescheduled
 // while reading proc from the cpu structure
-struct proc*
-myproc(void) {
+struct proc* myproc(void){
   struct cpu *c;
   struct proc *p;
   pushcli();
@@ -74,9 +71,8 @@ myproc(void) {
 // If found, change state to EMBRYO and initialize
 // state required to run in the kernel.
 // Otherwise return 0.
-static struct proc*
-allocproc(int number_tkts) //alter
-{
+static struct proc* allocproc(int number_tkts){ //nesta função adicionamos 
+  //um parametro com o numero de tickets
   struct proc *p;
   char *sp;
 
@@ -92,10 +88,11 @@ allocproc(int number_tkts) //alter
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  if(number_tkts > MAX) p->tickets = MAX;
+  //verifica os numeros tickets
+  if(number_tkts > MAX) p->tickets = MAX; 
   else if(number_tkts < 1) p->tickets = DEFAULT;
   else p->tickets = number_tkts;
-  p->callback = 0;
+  p->callback = 0; //zeramos o contador de bilhetes vencedores
   //O bilhete recebe somente se o sorteado estiver no invervalo definido
   release(&ptable.lock);
 
@@ -125,13 +122,11 @@ found:
 
 //PAGEBREAK: 32
 // Set up first user process.
-void
-userinit(void)
-{
+void userinit(void){
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
-  p = allocproc(DEFAULT); //alocando e passando o default por garantia
+  p = allocproc(10); //alocando e passando o default por garantia
   
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
@@ -146,7 +141,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-//  p->tickets = DEFAULT; //Atribuição de bilhetes padrão ao criar o processo
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -164,9 +158,7 @@ userinit(void)
 
 // Grow current process's memory by n bytes.
 // Return 0 on success, -1 on failure.
-int
-growproc(int n)
-{
+int growproc(int n){
   uint sz;
   struct proc *curproc = myproc();
 
@@ -186,18 +178,18 @@ growproc(int n)
 // Create a new process copying p as the parent.
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
-int
-fork(int number_tkts)
-{/*agora a função recebe um parâmetro com o número de bilhetes*/
+int fork(int number_tkts) {/*agora a função passou a receber um 
+  parâmetro com o número de bilhetes*/
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
 
   // Allocate process.
-  if((np = allocproc(number_tkts)) == 0){
-    return -1;
+  if((np = allocproc(number_tkts)) == 0){ //se numero de tickets igual a 0  
+    return -1; //encerra o processo
   }
-  //np->callback = 0; //Inicialmente, a quantidade de vez que o processo foi selecionado pelo escalonador é 0
+  //np->callback = 0; //Inicialmente, 
+  //a quantidade de vez que o processo foi selecionado pelo escalonador é 0
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
     kfree(np->kstack);
@@ -221,12 +213,6 @@ fork(int number_tkts)
 
   pid = np->pid;
 
-  //depurando:
-/*  #ifdef DEBUG 
-  cprintf("Processo criado. PID: [ %d ] Bilhetes: [ %d ]\n",np->pid, np->tickets);
-  #endif*/
-
-
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
@@ -239,9 +225,8 @@ fork(int number_tkts)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
-void
-exit(void)
-{
+void exit(void){
+
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
@@ -284,9 +269,8 @@ exit(void)
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
-int
-wait(void)
-{
+int wait(void) {
+
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
@@ -328,8 +312,7 @@ wait(void)
 
 //Função para retornar a escolha aleatória do processo
 int lcg_lotttery_random(int state){
-  /*função p/ gerar um número aleatório*/
-  return ((unsigned int)state * 48271u) % 0x7fffffff;
+   return ((unsigned int)state * 48271u) % 0x7fffffff;
 }
 
 //Função que retorna o total de bilhete
@@ -353,9 +336,8 @@ int lcg_lotttery_random(int state){
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
-{
+void scheduler(void){
+
   int sum_tkts_scheduler = 0; /*variavel contador*/
   int sorted_ticket; /*variavel recebe o bilhete sorteado*/
   
@@ -370,22 +352,26 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ // percorre a tabela de processo
-      if(p->state != RUNNABLE) continue;
-      sum_tkts_scheduler += p->tickets;
+      if(p->state != RUNNABLE) continue; 
+      sum_tkts_scheduler += p->tickets; //somador recebe os tickets executando
     } 
-    if(sum_tkts_scheduler > 0){
-      sorted_ticket = lcg_lotttery_random(lcg) % sum_tkts_scheduler+1;
-    
 
-      if(sorted_ticket < 0) sorted_ticket *= -1;
+    if(sum_tkts_scheduler > 0){ //verificando se existem processos que contem bilhetes
+      sorted_ticket = lcg_lotttery_random(lcg) % sum_tkts_scheduler+1;
+      //gera um numero aleatório passando o numero de processos
+
+      if(sorted_ticket < 0) sorted_ticket *= -1; //se bilhete sorteado for negativo
+      //garantimos o multiplicando por -1
       sum_tkts_scheduler = (sorted_ticket%sum_tkts_scheduler)+1;
+      //garantimos também que esteja no intervalo determinado
 
       for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           /*dentro do laço que percorre todos os processos*/
         if(p->state == RUNNABLE){
-          sum_tkts_scheduler -= p->tickets;/*se em estado de execução incrementa*/
-          if(sum_tkts_scheduler <= 0) {
-            p->callback++;
+          sum_tkts_scheduler -= p->tickets;//escalonador decrementa 
+          //o total do bilhete vencedor
+          if(sum_tkts_scheduler <= 0) {//verifica se a soma total é 0 ou negativa
+            p->callback++; // e encrementa o numero de vezes que ele foi selecionado
 
             // Switch to chosen process.  It is the process's job
             // to release ptable.lock and then reacquire it
@@ -393,18 +379,13 @@ scheduler(void)
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
-            /*depurando:*/
-  /*        #ifdef DEBUG
-            cprintf("O processo de PID: [ %d ] é o vencedor da CPU!\n", p->pid);
-            #endif*/
-
             //Incrementar a variável uma vez que o processo foi selecionado
             swtch(&(c->scheduler), p->context);
             switchkvm();
             // Process is done running for now.
             // It should have changed its p->state before coming back.
             c->proc = 0;
-            break;
+            break; 
           }
         }  
       }
@@ -421,9 +402,8 @@ scheduler(void)
 // be proc->intena and proc->ncli, but that would
 // break in the few places where a lock is held but
 // there's no process.
-void
-sched(void)
-{
+void sched(void){
+  
   int intena;
   struct proc *p = myproc();
 
@@ -441,9 +421,8 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
-void
-yield(void)
-{
+void yield(void){
+
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
   sched();
@@ -452,9 +431,8 @@ yield(void)
 
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
-void
-forkret(void)
-{
+void forkret(void){
+
   static int first = 1;
   // Still holding ptable.lock from scheduler.
   release(&ptable.lock);
@@ -473,9 +451,8 @@ forkret(void)
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
-void
-sleep(void *chan, struct spinlock *lk)
-{
+void sleep(void *chan, struct spinlock *lk){
+
   struct proc *p = myproc();
   
   if(p == 0)
@@ -513,9 +490,7 @@ sleep(void *chan, struct spinlock *lk)
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
-static void
-wakeup1(void *chan)
-{
+static void wakeup1(void *chan){
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -524,9 +499,7 @@ wakeup1(void *chan)
 }
 
 // Wake up all processes sleeping on chan.
-void
-wakeup(void *chan)
-{
+void wakeup(void *chan){
   acquire(&ptable.lock);
   wakeup1(chan);
   release(&ptable.lock);
@@ -535,9 +508,8 @@ wakeup(void *chan)
 // Kill the process with the given pid.
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
-int
-kill(int pid)
-{
+int kill(int pid){
+
   struct proc *p;
 
   acquire(&ptable.lock);
@@ -559,9 +531,8 @@ kill(int pid)
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
-void
-procdump(void)
-{
+void procdump(void){
+
   static char *states[] = {
   [UNUSED]    "unused",
   [EMBRYO]    "embryo",
