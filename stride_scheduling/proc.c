@@ -7,10 +7,14 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+
+int min_value = 14544542;
+
 
 static struct proc *initproc;
 
@@ -325,6 +329,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  int p_aux;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -339,16 +344,28 @@ scheduler(void)
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+      if(min_value >= p->cada_passada){
+        min_value = p->cada_passada;
+        p_aux = p;
+      }
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      if(p_aux){
+        p = p_aux;
+        p->cada_passada += p->passo;
+        p->vez_chamado++;
+        c->proc = p_aux;
+
+        switchuvm(p);
+        p->state = RUNNING;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
     }
     release(&ptable.lock);
 
