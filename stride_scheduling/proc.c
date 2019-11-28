@@ -182,17 +182,18 @@ growproc(int n)
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
 int
-fork(void)
+fork(int qtd_bilhete)
 {
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
 
-  // Allocate process.
+  // Allocate process.ti
   if((np = allocproc()) == 0){
     return -1;
   }
 
+  np->vez_chamado = 0;
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
     kfree(np->kstack);
@@ -203,6 +204,20 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+
+  if(qtd_bilhete > 0){
+    if(qtd_bilhete > Quantidade_padrao){
+      np->quant_bilhete = Quantidade_padrao;
+    }else{
+      np->quant_bilhete  = qtd_bilhete
+    }
+  }else{
+    np->quant_bilhete = Quantidade_padrao
+  }
+
+  np->passo = Valor / np->quant_bilhete;
+  np->cada_passada = np->passo;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -215,6 +230,8 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+
+  cprintf(" Processo do PID: %d e de bilhetes: %d foi criado com sucesso!\n", np->pid, np->quant_bilhete);
 
   acquire(&ptable.lock);
 
@@ -329,7 +346,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  int p_aux;
+  struct proc * p_aux;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -540,7 +557,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("PID: %d %s %s Bilhetes: %d Qtd Vezes Chamado: %d\n", p->pid, state, p->name, p->quant_bilhete, p->vez_chamado);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)

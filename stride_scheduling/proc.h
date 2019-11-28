@@ -1,4 +1,4 @@
-#define Max_ticket 101
+#define Max_ticket 260
 #define Quantidade_padrao 10
 #define Valor 1000
 
